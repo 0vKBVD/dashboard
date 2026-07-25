@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treactify — Chain Console</title>
+<style>
+  @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+  :root{
+    --void: #060608;
+    --black: #0a0a0d;
+    --panel: #0d0e12;
+    --panel-raised: #111318;
+    --line: #1c1e26;
+    --line-soft: #16171d;
+    --text: #eceef2;
+    --text-dim: #7d818f;
+    --text-faint: #4a4d59;
+    --sol-violet: #9945FF;
+    --sol-green: #14F195;
+    --eth-blue: #627EEA;
+    --up: #26e0a3;
+    --down: #ef5a6f;
+    --amber: #e8b04b;
+    --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --display: 'Space Grotesk', 'Inter', sans-serif;
+  }
+
+  @font-face{
+    font-family:'Space Grotesk';
+    src: local('Space Grotesk');
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html{ background: var(--void); }
+
+  body{
+    background: var(--void);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ---------- Network mesh backdrop ---------- */
+  #meshCanvas{
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .grain{
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .vignette{
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 120% 90% at 50% 0%, transparent 40%, var(--void) 100%);
+  }
+
+  .app{
+    position: relative;
+    z-index: 2;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 28px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 26px 0 22px;
+    border-bottom: 1px solid var(--line-soft);
+    margin-bottom: 28px;
+  }
+
+  .brand{
+    display: flex;
+    align-items: center;
+    gap: 13px;
+  }
+
+  .brand-mark{
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--sol-violet), var(--eth-blue) 60%, var(--sol-green));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .brand-mark::after{
+    content:'';
+    position: absolute;
+    inset: 3px;
+    border-radius: 6px;
+    background: var(--black);
+  }
+  .brand-mark svg{ position: relative; width: 17px; height: 17px; z-index: 1; }
+
+  .brand-text{ display: flex; flex-direction: column; line-height: 1.1; }
+  .brand-name{
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .brand-sub{
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  .header-right{
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+
+  .live-pill{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 13px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+  }
+  .live-dot{
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--up);
+    box-shadow: 0 0 0 0 rgba(38,224,163,0.5);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot{
+    0%{ box-shadow: 0 0 0 0 rgba(38,224,163,0.45); }
+    70%{ box-shadow: 0 0 0 7px rgba(38,224,163,0); }
+    100%{ box-shadow: 0 0 0 0 rgba(38,224,163,0); }
+  }
+
+  .clock{
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+    min-width: 92px;
+    text-align: right;
+  }
+  .clock span{ color: var(--text); }
+
+  /* ---------- Section labels ---------- */
+  .section-head{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::before{
+    content:'';
+    width: 3px; height: 12px;
+    background: var(--sol-violet);
+    display: inline-block;
+    border-radius: 1px;
+  }
+  .section-note{
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+
+  /* ---------- Overview strip ---------- */
+  .overview{
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 34px;
+  }
+
+  .ov-card{
+    background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ov-card.hero::before{
+    content:'';
+    position: absolute;
+    top: -40%; right: -20%;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(153,69,255,0.16), transparent 70%);
+    pointer-events: none;
+  }
+
+  .ov-label{
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+
+  .ov-value{
+    font-family: var(--display);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .ov-card.hero .ov-value{ font-size: 34px; }
+
+  .ov-delta{
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .ov-delta.up{ color: var(--up); }
+  .ov-delta.down{ color: var(--down); }
+
+  .ov-spark{ margin-top: 12px; height: 34px; }
+
+  .ov-meta{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 10px;
+  }
+
+  /* ---------- Featured chains (Solana / Ethereum) ---------- */
+  .featured{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 34px;
+  }
+
+  .feat-card{
+    border-radius: 16px;
+    padding: 24px 26px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .feat-card.sol{
+    background: linear-gradient(140deg, rgba(153,69,255,0.10), rgba(20,241,149,0.03) 55%, var(--panel) 100%);
+  }
+  .feat-card.eth{
+    background: linear-gradient(140deg, rgba(98,126,234,0.11), var(--panel) 65%);
+  }
+
+  .feat-glow{
+    position: absolute;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.14;
+    top: -80px; right: -60px;
+    pointer-events: none;
+  }
+  .feat-card.sol .feat-glow{ background: linear-gradient(135deg, var(--sol-violet), var(--sol-green)); }
+  .feat-card.eth .feat-glow{ background: var(--eth-blue); }
+
+  .feat-top{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    position: relative;
+  }
+
+  .feat-id{ display: flex; align-items: center; gap: 12px; }
+  .feat-icon{
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .feat-card.sol .feat-icon{ background: linear-gradient(135deg, var(--sol-violet), var(--sol-green)); }
+  .feat-card.eth .feat-icon{ background: rgba(98,126,234,0.16); border: 1px solid rgba(98,126,234,0.35); }
+  .feat-icon svg{ width: 19px; height: 19px; }
+
+  .feat-name{ font-family: var(--display); font-size: 16px; font-weight: 700; }
+  .feat-ticker{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.05em; }
+
+  .feat-badge{
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 10px;
+    border-radius: 100px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+  }
+
+  .feat-price{
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    position: relative;
+    margin-bottom: 4px;
+  }
+  .feat-change{
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .feat-chart{ height: 70px; position: relative; margin-bottom: 16px; }
+
+  .feat-stats{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    position: relative;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .feat-stat-label{
+    font-family: var(--mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin-bottom: 4px;
+  }
+  .feat-stat-value{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ---------- Ticker grid ---------- */
+  .ticker-grid{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 34px;
+  }
+
+  .tick-card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 17px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+    cursor: default;
+  }
+  .tick-card:hover{
+    border-color: #2a2d38;
+    transform: translateY(-1px);
+  }
+
+  .tick-top{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .tick-id{ display: flex; align-items: center; gap: 9px; }
+  .tick-dot{
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .tick-name{ font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .tick-ticker{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+
+  .tick-price{
+    font-family: var(--mono);
+    font-size: 16.5px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .tick-change{
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .tick-spark{ height: 24px; margin-top: 10px; }
+
+  /* ---------- Main chart + network stats layout ---------- */
+  .main-grid{
+    display: grid;
+    grid-template-columns: 2.1fr 1fr;
+    gap: 16px;
+    margin-bottom: 34px;
+    align-items: start;
+  }
+
+  .chart-panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px 24px 18px;
+  }
+
+  .chart-panel-head{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .chart-asset{ display: flex; align-items: center; gap: 12px; }
+  .chart-asset-icon{
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--sol-violet), var(--eth-blue));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .chart-asset-icon svg{ width: 16px; height: 16px; }
+  .chart-asset-name{ font-family: var(--display); font-size: 16px; font-weight: 700; }
+  .chart-asset-price{ font-family: var(--mono); font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+
+  .range-toggle{
+    display: flex;
+    gap: 4px;
+    background: var(--black);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 3px;
+  }
+  .range-btn{
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .range-btn.active{
+    background: var(--panel-raised);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .range-btn:hover:not(.active){ color: var(--text); }
+
+  .main-chart{ height: 260px; position: relative; }
+
+  .chart-foot{
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* ---------- Network stats side panel ---------- */
+  .network-panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .net-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .net-row:last-child{ border-bottom: none; }
+
+  .net-label-group{ display: flex; align-items: center; gap: 10px; }
+  .net-icon{
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .net-label{ font-size: 12px; color: var(--text-dim); }
+  .net-sub{ font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); margin-top: 1px; }
+
+  .net-value{
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: right;
+  }
+  .net-value .unit{ font-size: 10px; color: var(--text-faint); font-weight: 500; margin-left: 3px; }
+
+  /* ---------- Table ---------- */
+  .table-panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 34px;
+  }
+
+  table{ width: 100%; border-collapse: collapse; }
+
+  thead th{
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-faint);
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  thead th.num{ text-align: right; }
+
+  tbody td{
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td{ border-bottom: none; }
+  tbody tr{ transition: background 0.15s ease; }
+  tbody tr:hover{ background: rgba(255,255,255,0.015); }
+
+  td.num{ text-align: right; font-family: var(--mono); font-weight: 600; }
+  td.rank{ font-family: var(--mono); color: var(--text-faint); font-size: 12px; width: 40px; }
+
+  .row-asset{ display: flex; align-items: center; gap: 11px; }
+  .row-icon{
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--display);
+    font-size: 10.5px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .row-name{ font-weight: 600; font-size: 13px; }
+  .row-ticker{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-top: 1px; }
+
+  .chg-pill{
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .chg-pill.up{ color: var(--up); background: rgba(38,224,163,0.08); }
+  .chg-pill.down{ color: var(--down); background: rgba(239,90,111,0.08); }
+
+  .row-spark{ width: 90px; height: 26px; }
+
+  /* ---------- Bottom grid: market stats + activity feed ---------- */
+  .bottom-grid{
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 16px;
+  }
+
+  .market-stats{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ms-item{ display: flex; flex-direction: column; gap: 6px; }
+  .ms-label{
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .ms-value{
+    font-family: var(--display);
+    font-size: 21px;
+    font-weight: 700;
+  }
+  .ms-value .delta{
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+
+  .dominance-bar{
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    margin-top: 4px;
+    background: var(--black);
+  }
+  .dom-seg{ height: 100%; }
+
+  .dom-legend{
+    display: flex;
+    gap: 14px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .dom-legend-item{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+  }
+  .dom-legend-dot{ width: 7px; height: 7px; border-radius: 2px; }
+
+  .fng-gauge{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .fng-arc{ flex-shrink: 0; }
+  .fng-info{ display: flex; flex-direction: column; }
+  .fng-score{ font-family: var(--display); font-size: 26px; font-weight: 700; }
+  .fng-label{ font-family: var(--mono); font-size: 11px; color: var(--amber); font-weight: 600; margin-top: 2px; }
+
+  /* ---------- Activity feed ---------- */
+  .activity-panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px 22px;
+    max-height: 420px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .activity-panel::after{
+    content:'';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(180deg, transparent, var(--panel));
+    pointer-events: none;
+  }
+
+  .activity-list{
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 340px;
+    overflow: hidden;
+  }
+
+  .activity-row{
+    display: grid;
+    grid-template-columns: 22px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--line-soft);
+    animation: fadeIn 0.4s ease;
+  }
+  .activity-row:last-child{ border-bottom: none; }
+
+  @keyframes fadeIn{
+    from{ opacity: 0; transform: translateY(-4px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  .act-type{
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .act-type.buy{ background: rgba(38,224,163,0.1); color: var(--up); }
+  .act-type.sell{ background: rgba(239,90,111,0.1); color: var(--down); }
+  .act-type.transfer{ background: rgba(153,69,255,0.1); color: var(--sol-violet); }
+
+  .act-detail{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .act-main{ font-size: 12.5px; color: var(--text); }
+  .act-hash{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+
+  .act-amount{ font-family: var(--mono); font-size: 12.5px; font-weight: 600; text-align: right; white-space: nowrap; }
+  .act-time{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); text-align: right; white-space: nowrap; }
+
+  /* ---------- Footer ---------- */
+  footer{
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1200px){
+    .overview{ grid-template-columns: 1fr 1fr; }
+    .ticker-grid{ grid-template-columns: repeat(2, 1fr); }
+    .main-grid{ grid-template-columns: 1fr; }
+    .bottom-grid{ grid-template-columns: 1fr; }
+    .featured{ grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px){
+    .overview{ grid-template-columns: 1fr; }
+    .ticker-grid{ grid-template-columns: 1fr; }
+    .app{ padding: 0 16px 60px; }
+    header{ flex-wrap: wrap; gap: 14px; }
+    table{ font-size: 12px; }
+    thead th, tbody td{ padding: 12px; }
+  }
+
+  ::-webkit-scrollbar{ width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track{ background: transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<canvas id="meshCanvas"></canvas>
+<div class="grain"></div>
+<div class="vignette"></div>
+
+<div class="app">
+
+  <!-- ============ HEADER ============ -->
+  <header>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M4 7L12 3L20 7V17L12 21L4 17V7Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M4 7L12 11L20 7" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M12 11V21" stroke="white" stroke-width="1.6"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">Treactify</div>
+        <div class="brand-sub">Chain Console</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-pill"><span class="live-dot"></span> DONNÉES SIMULÉES · LIVE</div>
+      <div class="clock" id="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div class="overview">
+    <div class="ov-card hero">
+      <div class="ov-label">Valeur totale du portefeuille</div>
+      <div class="ov-value" id="portfolioValue">—</div>
+      <div class="ov-delta" id="portfolioDelta" style="color:var(--text-faint)">Aucun portefeuille connecté</div>
+      <svg class="ov-spark" id="portfolioSpark" viewBox="0 0 300 34" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="ov-card">
+      <div class="ov-label">Cap. marché globale</div>
+      <div class="ov-value" style="font-size:24px" id="globalCap">$2.41T</div>
+      <div class="ov-delta up" id="globalCapDelta">▲ 1.8%</div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-label">Volume 24h</div>
+      <div class="ov-value" style="font-size:24px" id="globalVolume">$94.6B</div>
+      <div class="ov-delta down" id="globalVolumeDelta">▼ 2.1%</div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-label">Dominance BTC</div>
+      <div class="ov-value" style="font-size:24px" id="btcDominance">51.2%</div>
+      <div class="ov-meta">ETH 17.4% · SOL 4.1%</div>
+    </div>
+  </div>
+
+  <!-- ============ FEATURED: SOLANA / ETHEREUM ============ -->
+  <div class="section-head">
+    <div class="section-title">Chaînes vedettes</div>
+    <div class="section-note">Solana · Ethereum</div>
+  </div>
+  <div class="featured">
+
+    <div class="feat-card sol">
+      <div class="feat-glow"></div>
+      <div class="feat-top">
+        <div class="feat-id">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4.5 15.5L7 13H19.5L17 15.5H4.5Z" fill="white"/><path d="M4.5 8.5L7 6H19.5L17 8.5H4.5Z" fill="white"/><path d="M17 12L19.5 9.5H7L4.5 12H17Z" fill="white"/></svg>
+          </div>
+          <div>
+            <div class="feat-name">Solana</div>
+            <div class="feat-ticker">SOL / USD</div>
+          </div>
+        </div>
+        <div class="feat-badge">L1 · PoH</div>
+      </div>
+      <div class="feat-price" id="solPrice">$182.47</div>
+      <div class="feat-change up" id="solChange">▲ 4.87% (24h)</div>
+      <svg class="feat-chart" id="solChart" viewBox="0 0 500 70" preserveAspectRatio="none"></svg>
+      <div class="feat-stats">
+        <div>
+          <div class="feat-stat-label">TPS réseau</div>
+          <div class="feat-stat-value" id="solTps">3 842</div>
+        </div>
+        <div>
+          <div class="feat-stat-label">Slot actuel</div>
+          <div class="feat-stat-value" id="solSlot">298 441 902</div>
+        </div>
+        <div>
+          <div class="feat-stat-label">Cap. marché</div>
+          <div class="feat-stat-value">$98.2B</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feat-card eth">
+      <div class="feat-glow"></div>
+      <div class="feat-top">
+        <div class="feat-id">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L12 9.5L18.5 12.5L12 2Z" fill="#627EEA"/><path d="M12 2L5.5 12.5L12 9.5L12 2Z" fill="#8A9FF0"/><path d="M12 15.5L12 22L18.5 13.8L12 15.5Z" fill="#627EEA"/><path d="M12 22L12 15.5L5.5 13.8L12 22Z" fill="#8A9FF0"/><path d="M12 14.2L18.5 11.2L12 9.5V14.2Z" fill="#4E5FBF"/><path d="M5.5 11.2L12 14.2V9.5L5.5 11.2Z" fill="#627EEA"/></svg>
+          </div>
+          <div>
+            <div class="feat-name">Ethereum</div>
+            <div class="feat-ticker">ETH / USD</div>
+          </div>
+        </div>
+        <div class="feat-badge">L1 · PoS</div>
+      </div>
+      <div class="feat-price" id="ethPrice">$3 412.18</div>
+      <div class="feat-change up" id="ethChange">▲ 2.14% (24h)</div>
+      <svg class="feat-chart" id="ethChart" viewBox="0 0 500 70" preserveAspectRatio="none"></svg>
+      <div class="feat-stats">
+        <div>
+          <div class="feat-stat-label">Gas (gwei)</div>
+          <div class="feat-stat-value" id="ethGas">18.4</div>
+        </div>
+        <div>
+          <div class="feat-stat-label">Bloc actuel</div>
+          <div class="feat-stat-value" id="ethBlock">20 984 112</div>
+        </div>
+        <div>
+          <div class="feat-stat-label">Cap. marché</div>
+          <div class="feat-stat-value">$410.6B</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ TICKER GRID ============ -->
+  <div class="section-head">
+    <div class="section-title">Toutes les cryptos</div>
+    <div class="section-note" id="tickerCount">12 actifs</div>
+  </div>
+  <div class="ticker-grid" id="tickerGrid"></div>
+
+  <!-- ============ MAIN CHART + NETWORK PANEL ============ -->
+  <div class="section-head">
+    <div class="section-title">Graphique</div>
+    <div class="section-note">Mise à jour en continu</div>
+  </div>
+  <div class="main-grid">
+    <div class="chart-panel">
+      <div class="chart-panel-head">
+        <div class="chart-asset">
+          <div class="chart-asset-icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4.5 15.5L7 13H19.5L17 15.5H4.5Z" fill="white"/><path d="M4.5 8.5L7 6H19.5L17 8.5H4.5Z" fill="white"/><path d="M17 12L19.5 9.5H7L4.5 12H17Z" fill="white"/></svg>
+          </div>
+          <div>
+            <div class="chart-asset-name">Solana (SOL)</div>
+            <div class="chart-asset-price" id="mainChartPrice">$182.47 · <span class="ov-delta up" style="font-size:12px">▲ 4.87%</span></div>
+          </div>
+        </div>
+        <div class="range-toggle">
+          <button class="range-btn" data-range="24h">24h</button>
+          <button class="range-btn active" data-range="7j">7j</button>
+          <button class="range-btn" data-range="1m">1m</button>
+          <button class="range-btn" data-range="1a">1a</button>
+        </div>
+      </div>
+      <svg class="main-chart" id="mainChart" viewBox="0 0 900 260" preserveAspectRatio="none"></svg>
+      <div class="chart-foot">
+        <span class="foot-high">Plus haut 7j: <span style="color:var(--text)" id="chart7hHigh">$191.20</span></span>
+        <span class="foot-low">Plus bas 7j: <span style="color:var(--text)" id="chart7hLow">$164.85</span></span>
+        <span>Volume moyen: <span style="color:var(--text)">$4.1B</span></span>
+      </div>
+    </div>
+
+    <div class="network-panel">
+      <div class="net-row">
+        <div class="net-label-group">
+          <div class="net-icon" style="background:rgba(232,176,75,0.12)"><i class="fa-solid fa-bolt" style="color:var(--amber);font-size:12px"></i></div>
+          <div><div class="net-label">Hashrate BTC</div><div class="net-sub">Réseau Bitcoin</div></div>
+        </div>
+        <div class="net-value" id="btcHashrate">612 <span class="unit">EH/s</span></div>
+      </div>
+      <div class="net-row">
+        <div class="net-label-group">
+          <div class="net-icon" style="background:rgba(98,126,234,0.12)"><i class="fa-solid fa-gas-pump" style="color:var(--eth-blue);font-size:12px"></i></div>
+          <div><div class="net-label">Gas fees ETH</div><div class="net-sub">Base fee moyen</div></div>
+        </div>
+        <div class="net-value" id="netEthGas">18.4 <span class="unit">gwei</span></div>
+      </div>
+      <div class="net-row">
+        <div class="net-label-group">
+          <div class="net-icon" style="background:rgba(153,69,255,0.12)"><i class="fa-solid fa-gauge-high" style="color:var(--sol-violet);font-size:12px"></i></div>
+          <div><div class="net-label">TPS Solana</div><div class="net-sub">Transactions / sec</div></div>
+        </div>
+        <div class="net-value" id="netSolTps">3 842</div>
+      </div>
+      <div class="net-row">
+        <div class="net-label-group">
+          <div class="net-icon" style="background:rgba(38,224,163,0.12)"><i class="fa-solid fa-cubes" style="color:var(--up);font-size:12px"></i></div>
+          <div><div class="net-label">Hauteur de bloc BTC</div><div class="net-sub">Dernier bloc miné</div></div>
+        </div>
+        <div class="net-value" id="btcBlockHeight">861 204</div>
+      </div>
+      <div class="net-row">
+        <div class="net-label-group">
+          <div class="net-icon" style="background:rgba(239,90,111,0.12)"><i class="fa-solid fa-clock" style="color:var(--down);font-size:12px"></i></div>
+          <div><div class="net-label">Temps de bloc moyen</div><div class="net-sub">Bitcoin</div></div>
+        </div>
+        <div class="net-value">9.8 <span class="unit">min</span></div>
+      </div>
+      <div class="net-row">
+        <div class="net-label-group">
+          <div class="net-icon" style="background:rgba(236,238,242,0.08)"><i class="fa-solid fa-vault" style="color:var(--text-dim);font-size:12px"></i></div>
+          <div><div class="net-label">Total value locked</div><div class="net-sub">DeFi (toutes chaînes)</div></div>
+        </div>
+        <div class="net-value">$118.4 <span class="unit">B</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TABLE ============ -->
+  <div class="section-head">
+    <div class="section-title">Marché détaillé</div>
+    <div class="section-note">Trié par cap. marché</div>
+  </div>
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Actif</th>
+          <th class="num">Prix</th>
+          <th class="num">24h %</th>
+          <th class="num">Cap. marché</th>
+          <th class="num">Volume 24h</th>
+          <th class="num">7 jours</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ============ BOTTOM: MARKET STATS + ACTIVITY ============ -->
+  <div class="bottom-grid">
+
+    <div class="market-stats">
+      <div class="section-title" style="margin-bottom:2px">Vue globale</div>
+
+      <div class="ms-item">
+        <div class="ms-label">Dominance de marché</div>
+        <div class="dominance-bar">
+          <div class="dom-seg" style="width:51.2%;background:linear-gradient(90deg,#e8b04b,#f0c46b)"></div>
+          <div class="dom-seg" style="width:17.4%;background:linear-gradient(90deg,#627EEA,#8A9FF0)"></div>
+          <div class="dom-seg" style="width:4.1%;background:linear-gradient(90deg,#9945FF,#14F195)"></div>
+          <div class="dom-seg" style="width:27.3%;background:#2a2c35"></div>
+        </div>
+        <div class="dom-legend">
+          <div class="dom-legend-item"><span class="dom-legend-dot" style="background:#e8b04b"></span>BTC 51.2%</div>
+          <div class="dom-legend-item"><span class="dom-legend-dot" style="background:#627EEA"></span>ETH 17.4%</div>
+          <div class="dom-legend-item"><span class="dom-legend-dot" style="background:#9945FF"></span>SOL 4.1%</div>
+          <div class="dom-legend-item"><span class="dom-legend-dot" style="background:#2a2c35"></span>Autres 27.3%</div>
+        </div>
+      </div>
+
+      <div class="ms-item">
+        <div class="ms-label">Indice Fear &amp; Greed</div>
+        <div class="fng-gauge">
+          <svg class="fng-arc" width="76" height="44" viewBox="0 0 76 44">
+            <path d="M4 40 A34 34 0 0 1 72 40" stroke="var(--line)" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <path id="fngArc" d="M4 40 A34 34 0 0 1 72 40" stroke="var(--amber)" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="107" stroke-dashoffset="27"/>
+          </svg>
+          <div class="fng-info">
+            <div class="fng-score" id="fngScore">64</div>
+            <div class="fng-label" id="fngLabel">Avidité</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ms-item">
+        <div class="ms-label">Actifs en hausse / baisse (24h)</div>
+        <div class="ms-value" style="display:flex;gap:16px;font-size:18px">
+          <span style="color:var(--up)">▲ <span id="upCount">8</span></span>
+          <span style="color:var(--down)">▼ <span id="downCount">4</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="activity-panel">
+      <div class="section-title" style="margin-bottom:14px">Activité récente</div>
+      <div class="activity-list" id="activityList"></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>Treactify Chain Console · build de démonstration</span>
+    <span id="footerClock">Actualisé toutes les 2s</span>
+  </footer>
+
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const ASSETS = [
+  { id:'btc',  name:'Bitcoin',   ticker:'BTC',  color:'#e8b04b', bg:'rgba(232,176,75,0.14)',  price: 61240.30, cap: 1205, vol: 28.4 },
+  { id:'eth',  name:'Ethereum',  ticker:'ETH',  color:'#627EEA', bg:'rgba(98,126,234,0.14)',  price: 3412.18,  cap: 410.6, vol: 14.2 },
+  { id:'sol',  name:'Solana',    ticker:'SOL',  color:'#9945FF', bg:'rgba(153,69,255,0.14)',  price: 182.47,   cap: 98.2,  vol: 5.8 },
+  { id:'bnb',  name:'BNB',       ticker:'BNB',  color:'#F0B90B', bg:'rgba(240,185,11,0.14)',  price: 592.11,   cap: 88.4,  vol: 2.1 },
+  { id:'xrp',  name:'XRP',       ticker:'XRP',  color:'#25A9E0', bg:'rgba(37,169,224,0.14)',  price: 0.612,    cap: 34.7,  vol: 1.9 },
+  { id:'ada',  name:'Cardano',   ticker:'ADA',  color:'#3468CC', bg:'rgba(52,104,204,0.14)',  price: 0.451,    cap: 16.2,  vol: 0.62 },
+  { id:'doge', name:'Dogecoin',  ticker:'DOGE', color:'#C9A648', bg:'rgba(201,166,72,0.14)',  price: 0.1284,   cap: 18.9,  vol: 1.4 },
+  { id:'dot',  name:'Polkadot',  ticker:'DOT',  color:'#E6007A', bg:'rgba(230,0,122,0.14)',   price: 6.84,     cap: 9.4,   vol: 0.31 },
+  { id:'avax', name:'Avalanche', ticker:'AVAX', color:'#E84142', bg:'rgba(232,65,66,0.14)',   price: 34.62,    cap: 13.1,  vol: 0.58 },
+  { id:'matic',name:'Polygon',   ticker:'MATIC',color:'#8247E5', bg:'rgba(130,71,229,0.14)',  price: 0.612,    cap: 6.2,   vol: 0.29 },
+  { id:'link', name:'Chainlink', ticker:'LINK', color:'#2A5ADA', bg:'rgba(42,90,218,0.14)',   price: 14.28,    cap: 8.9,   vol: 0.44 },
+  { id:'atom', name:'Cosmos',    ticker:'ATOM', color:'#2E3148', bg:'rgba(151,155,196,0.14)', price: 8.14,     cap: 3.2,   vol: 0.18 },
+];
+
+// Each range gets its own point count and volatility so the shape is genuinely different,
+// and all of them are anchored to end at the asset's current price.
+const RANGE_CONFIG = {
+  '24h': { points: 24,  vol: 0.010 },
+  '7j':  { points: 42,  vol: 0.020 },
+  '1m':  { points: 30,  vol: 0.032 },
+  '1a':  { points: 52,  vol: 0.055 },
+};
+
+function genRangeHistories(currentPrice){
+  const out = {};
+  Object.entries(RANGE_CONFIG).forEach(([key, cfg]) => {
+    // walk backward from current price so every range ends at "now"
+    const arr = [currentPrice];
+    let v = currentPrice;
+    for(let i=1;i<cfg.points;i++){
+      v = v / (1 + (Math.random()-0.5)*cfg.vol);
+      arr.unshift(v);
+    }
+    out[key] = arr;
+  });
+  return out;
+}
+
+// live mutable state
+const state = {};
+ASSETS.forEach(a=>{
+  state[a.id] = {
+    price: a.price,
+    change24h: (Math.random()*10 - 3.5),
+    history: genHistory(a.price, 40),        // rolling live ticks, used by sparklines
+    ranges: genRangeHistories(a.price),        // fixed 24h/7j/1m/1a series, used by main chart
+  };
+});
+
+function genHistory(base, n){
+  const arr = [base];
+  let v = base;
+  for(let i=1;i<n;i++){
+    v = v * (1 + (Math.random()-0.5)*0.018);
+    arr.push(v);
+  }
+  return arr;
+}
+
+function fmtPrice(v){
+  if(v >= 1000) return v.toLocaleString('fr-FR', {maximumFractionDigits:0});
+  if(v >= 1) return v.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return v.toLocaleString('fr-FR', {minimumFractionDigits:4, maximumFractionDigits:4});
+}
+function fmtUSD(v){
+  if(v >= 1000) return '$' + v.toLocaleString('fr-FR', {maximumFractionDigits:0});
+  if(v >= 1) return '$' + v.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return '$' + v.toLocaleString('fr-FR', {minimumFractionDigits:4, maximumFractionDigits:4});
+}
+function fmtCap(v){
+  return v >= 1000 ? '$' + (v/1000).toFixed(2) + 'T' : '$' + v.toFixed(1) + 'B';
+}
+function sign(v){ return v >= 0 ? '▲' : '▼'; }
+function cls(v){ return v >= 0 ? 'up' : 'down'; }
+
+/* ================= SPARKLINE / CHART BUILDER ================= */
+function buildSparkPath(data, w, h, pad=2){
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = (max - min) || 1;
+  const step = w / (data.length - 1);
+  let path = '';
+  data.forEach((v,i)=>{
+    const x = i*step;
+    const y = h - pad - ((v-min)/range)*(h-pad*2);
+    path += (i===0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+  });
+  return path.trim();
+}
+
+function renderSpark(svgEl, data, color, filled=false){
+  const w = 300, h = svgEl.viewBox.baseVal.height || 34;
+  const linePath = buildSparkPath(data, w, h);
+  let fillPath = '';
+  if(filled){
+    fillPath = `<path d="${linePath} L${w},${h} L0,${h} Z" fill="url(#grad-${svgEl.id})" opacity="0.35"/>`;
+  }
+  svgEl.innerHTML = `
+    <defs>
+      <linearGradient id="grad-${svgEl.id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${fillPath}
+    <path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  `;
+}
+
+function renderFeatChart(svgEl, data, color){
+  const w = 500, h = 70;
+  const linePath = buildSparkPath(data, w, h, 4);
+  svgEl.innerHTML = `
+    <defs>
+      <linearGradient id="grad-${svgEl.id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.45"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${linePath} L${w},${h} L0,${h} Z" fill="url(#grad-${svgEl.id})"/>
+    <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  `;
+}
+
+let currentRange = '7j';
+let currentChartAsset = 'sol';
+
+const RANGE_LABELS = {
+  '24h': { unit: '24h', foot: 'Plus haut 24h', footLow: 'Plus bas 24h' },
+  '7j':  { unit: '7j',  foot: 'Plus haut 7j',  footLow: 'Plus bas 7j' },
+  '1m':  { unit: '1m',  foot: 'Plus haut 1m',  footLow: 'Plus bas 1m' },
+  '1a':  { unit: '1a',  foot: 'Plus haut 1a',  footLow: 'Plus bas 1a' },
+};
+
+function renderMainChart(data){
+  const svgEl = document.getElementById('mainChart');
+  const w = 900, h = 260;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = (max-min) || 1;
+  const step = w/(data.length-1);
+
+  let path = '';
+  data.forEach((v,i)=>{
+    const x = i*step;
+    const y = h - 20 - ((v-min)/range)*(h-40);
+    path += (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+  });
+
+  // gridlines
+  let grid = '';
+  for(let i=0;i<=4;i++){
+    const y = 20 + i*(h-40)/4;
+    grid += `<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="#16171d" stroke-width="1"/>`;
+  }
+
+  svgEl.innerHTML = `
+    <defs>
+      <linearGradient id="mainGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#9945FF" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="#9945FF" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${grid}
+    <path d="${path.trim()} L${w},${h} L0,${h} Z" fill="url(#mainGrad)"/>
+    <path d="${path.trim()}" fill="none" stroke="#9945FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  `;
+}
+
+/* ================= TICKER GRID ================= */
+function initTickerGrid(){
+  const grid = document.getElementById('tickerGrid');
+  grid.innerHTML = ASSETS.map(a => `
+    <div class="tick-card" data-id="${a.id}">
+      <div class="tick-top">
+        <div class="tick-id">
+          <div class="tick-dot" style="background:${a.bg};color:${a.color}">${a.ticker.slice(0,2)}</div>
+          <div>
+            <div class="tick-name">${a.name}</div>
+            <div class="tick-ticker">${a.ticker}</div>
+          </div>
+        </div>
+      </div>
+      <div class="tick-price" id="price-${a.id}">${fmtUSD(state[a.id].price)}</div>
+      <div class="tick-change ${cls(state[a.id].change24h)}" id="change-${a.id}">${sign(state[a.id].change24h)} ${Math.abs(state[a.id].change24h).toFixed(2)}%</div>
+      <svg class="tick-spark" id="spark-${a.id}" viewBox="0 0 300 24" preserveAspectRatio="none"></svg>
+    </div>
+  `).join('');
+  document.getElementById('tickerCount').textContent = ASSETS.length + ' actifs';
+}
+
+/* ================= TABLE ================= */
+function initTable(){
+  const sorted = [...ASSETS].sort((a,b)=>b.cap - a.cap);
+  const body = document.getElementById('tableBody');
+  body.innerHTML = sorted.map((a, idx) => `
+    <tr data-id="${a.id}">
+      <td class="rank">${idx+1}</td>
+      <td>
+        <div class="row-asset">
+          <div class="row-icon" style="background:${a.bg};color:${a.color}">${a.ticker.slice(0,2)}</div>
+          <div>
+            <div class="row-name">${a.name}</div>
+            <div class="row-ticker">${a.ticker}</div>
+          </div>
+        </div>
+      </td>
+      <td class="num" id="t-price-${a.id}">${fmtUSD(state[a.id].price)}</td>
+      <td class="num" id="t-change-${a.id}"><span class="chg-pill ${cls(state[a.id].change24h)}">${sign(state[a.id].change24h)} ${Math.abs(state[a.id].change24h).toFixed(2)}%</span></td>
+      <td class="num">${fmtCap(a.cap)}</td>
+      <td class="num">${fmtCap(a.vol)}</td>
+      <td class="num"><svg class="row-spark" id="t-spark-${a.id}" viewBox="0 0 90 26" preserveAspectRatio="none"></svg></td>
+    </tr>
+  `).join('');
+}
+
+/* ================= ACTIVITY FEED ================= */
+const ACT_TYPES = [
+  { type:'buy', icon:'fa-arrow-up', verb:'Achat' },
+  { type:'sell', icon:'fa-arrow-down', verb:'Vente' },
+  { type:'transfer', icon:'fa-right-left', verb:'Transfert' },
+];
+
+function randHash(){
+  const chars = 'abcdef0123456789';
+  let s = '0x';
+  for(let i=0;i<8;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s + '…';
+}
+
+function makeActivityRow(){
+  const asset = ASSETS[Math.floor(Math.random()*ASSETS.length)];
+  const act = ACT_TYPES[Math.floor(Math.random()*ACT_TYPES.length)];
+  const amount = (Math.random()*(asset.price > 1000 ? 2 : asset.price > 10 ? 40 : 5000)).toFixed(asset.price > 1000 ? 4 : 2);
+  const usdValue = (amount * state[asset.id].price);
+
+  const row = document.createElement('div');
+  row.className = 'activity-row';
+  row.innerHTML = `
+    <div class="act-type ${act.type}"><i class="fa-solid ${act.icon}"></i></div>
+    <div class="act-detail">
+      <div class="act-main">${act.verb} <strong>${asset.ticker}</strong></div>
+      <div class="act-hash">${randHash()}</div>
+    </div>
+    <div class="act-amount" style="color:${act.type==='buy'?'var(--up)':act.type==='sell'?'var(--down)':'var(--text)'}">${amount} ${asset.ticker}</div>
+    <div class="act-time">à l'instant</div>
+  `;
+  return row;
+}
+
+function initActivity(){
+  const list = document.getElementById('activityList');
+  for(let i=0;i<10;i++){
+    list.appendChild(makeActivityRow());
+  }
+}
+
+function pushActivity(){
+  const list = document.getElementById('activityList');
+  const row = makeActivityRow();
+  list.insertBefore(row, list.firstChild);
+  // age existing timestamps roughly
+  const rows = list.querySelectorAll('.activity-row');
+  rows.forEach((r, i) => {
+    if(i === 0) return;
+    const t = r.querySelector('.act-time');
+    if(i < 3) t.textContent = 'il y a ' + (i*7) + 's';
+    else if(i < 8) t.textContent = 'il y a ' + i + 'm';
+    else t.textContent = 'il y a ' + (i*2) + 'm';
+  });
+  if(rows.length > 12){
+    list.removeChild(list.lastChild);
+  }
+}
+
+/* ================= UPDATE LOOP ================= */
+function tickPrice(id){
+  const s = state[id];
+  const drift = (Math.random()-0.5) * 0.006;
+  s.price = Math.max(0.0001, s.price * (1+drift));
+  s.change24h += (Math.random()-0.5)*0.15;
+  s.change24h = Math.max(-18, Math.min(22, s.change24h));
+  s.history.push(s.price);
+  if(s.history.length > 40) s.history.shift();
+  // nudge the last point of each range series so ranges stay anchored to the live price
+  Object.values(s.ranges).forEach(arr => { arr[arr.length-1] = s.price; });
+}
+
+function updateAll(){
+  ASSETS.forEach(a => {
+    tickPrice(a.id);
+    const s = state[a.id];
+
+    const priceEl = document.getElementById('price-'+a.id);
+    const changeEl = document.getElementById('change-'+a.id);
+    if(priceEl){
+      priceEl.textContent = fmtUSD(s.price);
+      priceEl.style.color = '';
+    }
+    if(changeEl){
+      changeEl.className = 'tick-change ' + cls(s.change24h);
+      changeEl.textContent = `${sign(s.change24h)} ${Math.abs(s.change24h).toFixed(2)}%`;
+    }
+    const sparkEl = document.getElementById('spark-'+a.id);
+    if(sparkEl) renderSpark(sparkEl, s.history, cls(s.change24h)==='up' ? '#26e0a3' : '#ef5a6f', true);
+
+    const tPrice = document.getElementById('t-price-'+a.id);
+    const tChange = document.getElementById('t-change-'+a.id);
+    if(tPrice) tPrice.textContent = fmtUSD(s.price);
+    if(tChange) tChange.innerHTML = `<span class="chg-pill ${cls(s.change24h)}">${sign(s.change24h)} ${Math.abs(s.change24h).toFixed(2)}%</span>`;
+    const tSpark = document.getElementById('t-spark-'+a.id);
+    if(tSpark) renderSpark(tSpark, s.history, cls(s.change24h)==='up' ? '#26e0a3' : '#ef5a6f');
+  });
+
+  // featured cards
+  const sol = state.sol, eth = state.eth;
+  document.getElementById('solPrice').textContent = fmtUSD(sol.price);
+  document.getElementById('solChange').className = 'feat-change ' + cls(sol.change24h);
+  document.getElementById('solChange').textContent = `${sign(sol.change24h)} ${Math.abs(sol.change24h).toFixed(2)}% (24h)`;
+  renderFeatChart(document.getElementById('solChart'), sol.history, '#9945FF');
+
+  document.getElementById('ethPrice').textContent = fmtUSD(eth.price);
+  document.getElementById('ethChange').className = 'feat-change ' + cls(eth.change24h);
+  document.getElementById('ethChange').textContent = `${sign(eth.change24h)} ${Math.abs(eth.change24h).toFixed(2)}% (24h)`;
+  renderFeatChart(document.getElementById('ethChart'), eth.history, '#627EEA');
+
+  // network stats
+  document.getElementById('solTps').textContent = (3200 + Math.floor(Math.random()*1400)).toLocaleString('fr-FR');
+  document.getElementById('netSolTps').textContent = document.getElementById('solTps').textContent;
+  document.getElementById('solSlot').textContent = (298441902 + Math.floor(Math.random()*500)).toLocaleString('fr-FR');
+  document.getElementById('ethGas').textContent = (12 + Math.random()*18).toFixed(1);
+  document.getElementById('netEthGas').innerHTML = document.getElementById('ethGas').textContent + ' <span class="unit">gwei</span>';
+  document.getElementById('ethBlock').textContent = (20984112 + Math.floor(Math.random()*40)).toLocaleString('fr-FR');
+  document.getElementById('btcHashrate').innerHTML = (600 + Math.floor(Math.random()*24)) + ' <span class="unit">EH/s</span>';
+  document.getElementById('btcBlockHeight').textContent = (861204 + Math.floor(Math.random()*3)).toLocaleString('fr-FR');
+
+  // main chart: re-render whatever asset/range is currently selected
+  refreshMainChartPanel();
+
+  // portfolio overview left as placeholder until a real wallet/account is connected
+
+  // up/down counts
+  let up=0, down=0;
+  ASSETS.forEach(a => state[a.id].change24h >= 0 ? up++ : down++);
+  document.getElementById('upCount').textContent = up;
+  document.getElementById('downCount').textContent = down;
+}
+
+function updatePortfolioSpark(){
+  // no real portfolio connected yet — leave the sparkline empty
+}
+
+/* ================= CLOCK ================= */
+function updateClock(){
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const ss = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').innerHTML = `<span>${hh}:${mm}:${ss}</span>`;
+}
+
+/* ================= RANGE TOGGLE ================= */
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRange = btn.dataset.range;
+    refreshMainChartPanel();
+  });
+});
+
+function refreshMainChartPanel(){
+  const s = state[currentChartAsset];
+  const data = s.ranges[currentRange];
+  renderMainChart(data);
+
+  const labels = RANGE_LABELS[currentRange];
+  document.querySelector('.foot-high').innerHTML =
+    `${labels.foot}: <span style="color:var(--text)" id="chart7hHigh">${fmtUSD(Math.max(...data))}</span>`;
+  document.querySelector('.foot-low').innerHTML =
+    `${labels.footLow}: <span style="color:var(--text)" id="chart7hLow">${fmtUSD(Math.min(...data))}</span>`;
+
+  document.getElementById('mainChartPrice').innerHTML =
+    `${fmtUSD(s.price)} · <span class="ov-delta ${cls(s.change24h)}" style="font-size:12px">${sign(s.change24h)} ${Math.abs(s.change24h).toFixed(2)}%</span>`;
+}
+
+/* ================= NETWORK MESH BACKGROUND ================= */
+function initMesh(){
+  const canvas = document.getElementById('meshCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, nodes = [];
+  const NODE_COUNT = 46;
+  const MAX_DIST = 140;
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = Math.max(window.innerHeight, 900);
+  }
+  resize();
+  window.addEventListener('resize', () => { resize(); initNodes(); });
+
+  function initNodes(){
+    nodes = [];
+    for(let i=0;i<NODE_COUNT;i++){
+      nodes.push({
+        x: Math.random()*w,
+        y: Math.random()*h,
+        vx: (Math.random()-0.5)*0.18,
+        vy: (Math.random()-0.5)*0.18,
+        r: Math.random()*1.4 + 0.6,
+      });
+    }
+  }
+  initNodes();
+
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    nodes.forEach(n => {
+      n.x += n.vx; n.y += n.vy;
+      if(n.x < 0 || n.x > w) n.vx *= -1;
+      if(n.y < 0 || n.y > h) n.vy *= -1;
+    });
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist < MAX_DIST){
+          const opacity = (1 - dist/MAX_DIST) * 0.12;
+          ctx.strokeStyle = `rgba(153,69,255,${opacity})`;
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    nodes.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(153,69,255,0.35)';
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ================= INIT ================= */
+initTickerGrid();
+initTable();
+initActivity();
+updateClock();
+refreshMainChartPanel();
+updateAll();
+updatePortfolioSpark();
+initMesh();
+
+setInterval(updateClock, 1000);
+setInterval(updateAll, 2200);
+setInterval(updatePortfolioSpark, 2200);
+setInterval(pushActivity, 3400);
+</script>
+
+</body>
+</html>
